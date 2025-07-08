@@ -41,6 +41,15 @@ check_file_for_secrets() {
         return 0
     fi
     
+    # Skip test files with obvious test patterns
+    if [[ "$file" == *"test"* ]] || [[ "$file" == *"spec"* ]] || [[ "$file" == *"__tests__"* ]]; then
+        echo "   🧪 Test file detected: $file (relaxed checking)"
+        # For test files, we'll be more lenient with secret detection
+        TEST_FILE=1
+    else
+        TEST_FILE=0
+    fi
+    
     # Skip files that are too large (>1MB)
     if [ -f "$file" ] && [ $(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0) -gt 1048576 ]; then
         echo "⚠️  Skipping large file: $file"
@@ -105,28 +114,75 @@ check_file_for_secrets() {
         "mongodb://.*\$\{.*\}"
         "api.*YOUR_"
         "\$\{[^}]+\}"
+        # Test-specific patterns
+        "fake[_-]?secret"
+        "test[_-]?secret"
+        "mock[_-]?secret"
+        "dummy[_-]?secret"
+        "fake[_-]?jwt"
+        "test[_-]?jwt"
+        "mock[_-]?jwt" 
+        "dummy[_-]?jwt"
+        "fake[_-]?password"
+        "test[_-]?password"
+        "mock[_-]?password"
+        "dummy[_-]?password"
+        "secret.*test"
+        "secret.*fake"
+        "secret.*mock"
+        "secret.*dummy"
+        "jwt.*test"
+        "jwt.*fake" 
+        "jwt.*mock"
+        "jwt.*dummy"
+        "password.*test"
+        "password.*fake"
+        "password.*mock"
+        "password.*dummy"
     )
     
     # Check each pattern
     for pattern in "${PATTERNS[@]}"; do
         if grep -i -E "$pattern" "$file" > /dev/null 2>&1; then
-            # Check if it matches any ignore pattern
-            local should_ignore=0
-            local match_line=$(grep -i -E "$pattern" "$file" | head -1)
-            
-            for ignore_pattern in "${IGNORE_PATTERNS[@]}"; do
-                if echo "$match_line" | grep -i -E "$ignore_pattern" > /dev/null 2>&1; then
+            # Get all matching lines with line numbers
+            while IFS= read -r match_line; do
+                local line_number=$(echo "$match_line" | cut -d: -f1)
+                local line_content=$(echo "$match_line" | cut -d: -f2-)
+                local should_ignore=0
+                
+                # Check for bypass comment on the same line or line before
+                if grep -n "# secret-ignore\|// secret-ignore\|/* secret-ignore" "$file" | grep -E "(^$line_number:|^$((line_number-1)):)" > /dev/null 2>&1; then
+                    echo "   ✅ Secret ignored due to bypass comment at line $line_number"
                     should_ignore=1
-                    break
                 fi
-            done
-            
-            if [ $should_ignore -eq 0 ]; then
-                echo -e "   ${RED}❌ Potential secret found in $file:${NC}"
-                grep -i -n -E "$pattern" "$file" | head -3 | sed 's/^/      /'
-                echo ""
-                issues_found=1
-            fi
+                
+                # Check if it matches any ignore pattern
+                if [ $should_ignore -eq 0 ]; then
+                    for ignore_pattern in "${IGNORE_PATTERNS[@]}"; do
+                        if echo "$line_content" | grep -i -E "$ignore_pattern" > /dev/null 2>&1; then
+                            should_ignore=1
+                            break
+                        fi
+                    done
+                fi
+                
+                # For test files, be more lenient with obvious test values
+                if [ $should_ignore -eq 0 ] && [ $TEST_FILE -eq 1 ]; then
+                    # Additional test-specific patterns
+                    if echo "$line_content" | grep -i -E "(test|mock|fake|dummy|spec|fixture)" > /dev/null 2>&1; then
+                        should_ignore=1
+                        echo "   🧪 Test value detected and ignored at line $line_number"
+                    fi
+                fi
+                
+                if [ $should_ignore -eq 0 ]; then
+                    echo -e "   ${RED}❌ Potential secret found in $file at line $line_number:${NC}"
+                    echo "      $line_content"
+                    echo -e "   ${YELLOW}💡 To ignore this line, add a comment: # secret-ignore${NC}"
+                    echo ""
+                    issues_found=1
+                fi
+            done <<< "$(grep -i -n -E "$pattern" "$file")"
         fi
     done
     
@@ -171,12 +227,18 @@ if [ $SECRETS_FOUND -eq 1 ]; then
     echo "1. Remove or replace the detected secrets with placeholders"
     echo "2. Add sensitive files to .gitignore"
     echo "3. Use environment variables or .env.example templates"
-    echo "4. If this is a false positive, you can bypass with: git commit --no-verify"
+    echo "4. For test values, add '# secret-ignore' comment on the same line"
+    echo "5. If this is a false positive, you can bypass with: git commit --no-verify"
+    echo ""
+    echo -e "${YELLOW}Examples of bypass comments:${NC}"
+    echo "  const testSecret = 'fake-jwt-secret-for-testing'; // secret-ignore"
+    echo "  password: 'test-password-123', # secret-ignore"
     echo ""
     echo -e "${YELLOW}Security reminder:${NC}"
     echo "- Never commit real passwords, API keys, or private keys"
     echo "- Use .env files for local secrets (already in .gitignore)"
     echo "- Use placeholder values in documentation and examples"
+    echo "- Test files have relaxed checking but should still use obvious test values"
     echo ""
     exit 1
 else

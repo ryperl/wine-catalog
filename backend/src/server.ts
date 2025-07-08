@@ -11,13 +11,13 @@ import { errorHandler, notFound } from './middleware/error';
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+export const createServer = () => {
+  const app = express();
 
-// Security middleware
-app.use(helmet());
+  // Security middleware
+  app.use(helmet());
 
-// CORS configuration
+  // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://yourdomain.com'] // Add your production domain here
@@ -62,9 +62,18 @@ app.get('/', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+  return app;
+};
+
+// Get configuration values
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+
 // Start server
 const startServer = async () => {
   try {
+    // Create server instance
+    const app = createServer();
+    
     // Connect to database
     await connectDatabase();
     
@@ -93,7 +102,7 @@ process.on('uncaughtException', (err: Error) => {
   process.exit(1);
 });
 
-// Start the server
-startServer();
-
-export default app;
+// Start the server if this file is run directly
+if (require.main === module) {
+  startServer();
+}
