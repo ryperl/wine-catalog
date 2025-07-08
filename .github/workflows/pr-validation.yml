@@ -166,11 +166,15 @@ jobs:
       run: |
         echo "Starting backend server..."
         
-        # Check if dist/server.js exists
-        if [ ! -f "dist/server.js" ]; then
-          echo "❌ dist/server.js not found! Build may have failed."
+        # Check if dist/src/server.js exists
+        if [ ! -f "dist/src/server.js" ]; then
+          echo "❌ dist/src/server.js not found! Build may have failed."
           echo "Contents of dist directory:"
           ls -la dist/ || echo "No dist directory"
+          if [ -d "dist/src" ]; then
+            echo "Contents of dist/src directory:"
+            ls -la dist/src/
+          fi
           exit 1
         fi
         
