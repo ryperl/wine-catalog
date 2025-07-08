@@ -8,6 +8,8 @@ import { connectDatabase } from './utils/database';
 import routes from './routes';
 import { errorHandler, notFound } from './middleware/error';
 
+// Test git commit hook
+
 // Load environment variables
 dotenv.config();
 
