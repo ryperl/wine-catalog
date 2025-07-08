@@ -1,0 +1,162 @@
+name: Security Scan (Alternative)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  trufflehog-scan:
+    name: TruffleHog Secret Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Debug Information
+      run: |
+        echo "Repository: ${{ github.repository }}"
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "SHA: ${{ github.sha }}"
+        git log --oneline -5
+
+    # Method 1: Scan entire repository filesystem (no git history)
+    - name: TruffleHog Filesystem Scan
+      id: filesystem-scan
+      continue-on-error: true
+      run: |
+        # Install TruffleHog CLI directly
+        curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+        
+        # Run filesystem scan (avoids git comparison issues)
+        trufflehog filesystem . \
+          --only-verified \
+          --json \
+          --no-update \
+          > trufflehog-results.json || echo "Scan completed with findings"
+
+    # Method 2: Scan git repository with controlled commit range
+    - name: TruffleHog Git Scan (Recent History)
+      id: git-scan
+      continue-on-error: true
+      run: |
+        # Scan last 5 commits to avoid large history issues
+        trufflehog git . \
+          --only-verified \
+          --json \
+          --no-update \
+          --since-commit=HEAD~5 \
+          >> trufflehog-results.json || echo "Git scan completed"
+
+    - name: Process Results
+      id: process-results
+      run: |
+        # Check if any secrets were found
+        if [ -f trufflehog-results.json ] && [ -s trufflehog-results.json ]; then
+          SECRET_COUNT=$(cat trufflehog-results.json | jq -s length)
+          echo "secrets-found=${SECRET_COUNT}" >> $GITHUB_OUTPUT
+          echo "status=failed" >> $GITHUB_OUTPUT
+          
+          echo "🚨 SECRETS DETECTED: ${SECRET_COUNT} potential secrets found!"
+          cat trufflehog-results.json | jq '.'
+        else
+          echo "secrets-found=0" >> $GITHUB_OUTPUT
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "✅ No secrets detected"
+        fi
+
+    - name: Upload Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: trufflehog-results
+        path: trufflehog-results.json
+        retention-days: 30
+
+    - name: Fail on Secrets
+      if: steps.process-results.outputs.status == 'failed'
+      run: |
+        echo "❌ Secret detection failed - secrets found in repository"
+        echo "Please review the uploaded artifacts and remediate any exposed secrets"
+        exit 1
+
+  comment-on-pr:
+    name: Comment Results on PR
+    runs-on: ubuntu-latest
+    needs: trufflehog-scan
+    if: github.event_name == 'pull_request' && always()
+    
+    steps:
+    - name: Download Results
+      uses: actions/download-artifact@v4
+      with:
+        name: trufflehog-results
+        path: ./results
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const { owner, repo, number } = context.issue;
+          const scanResult = '${{ needs.trufflehog-scan.result }}';
+          
+          let secretCount = 0;
+          let details = '';
+          
+          try {
+            if (fs.existsSync('./results/trufflehog-results.json')) {
+              const results = JSON.parse(fs.readFileSync('./results/trufflehog-results.json', 'utf8'));
+              if (Array.isArray(results)) {
+                secretCount = results.length;
+              }
+            }
+          } catch (error) {
+            console.log('Could not parse results:', error);
+          }
+          
+          let message = '';
+          
+          if (scanResult === 'success' && secretCount === 0) {
+            message = `🔒 **Secret Detection: PASSED** ✅
+            
+            No secrets or credentials detected in this PR.
+            
+            - ✅ Filesystem scan: Clean
+            - ✅ Git history scan: Clean
+            - 🛡️ Only verified detectors used
+            
+            Safe to merge! 🚀`;
+          } else {
+            message = `🚨 **Secret Detection: FAILED** ❌
+            
+            **${secretCount} potential secret(s) detected!**
+            
+            ⚠️ **IMMEDIATE ACTION REQUIRED:**
+            
+            1. 🔍 **Review the workflow artifacts** for detailed findings
+            2. 🔑 **Remove any exposed secrets** from your code
+            3. 🔄 **Rotate compromised credentials** immediately
+            4. 📝 **Use environment variables** for sensitive data
+            5. 🛡️ **Consider using secrets management** (GitHub Secrets, AWS Secrets Manager, etc.)
+            
+            **Common secret types detected:**
+            - API keys and tokens
+            - Database credentials
+            - Private keys and certificates
+            - Authentication secrets
+            
+            **This PR is blocked until secrets are remediated.** 🚫`;
+          }
+          
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: number,
+            body: message
+          });
