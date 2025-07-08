@@ -132,7 +132,7 @@ jobs:
       run: |
         echo "Waiting for MongoDB to be ready..."
         for i in {1..30}; do
-          if mongosh "mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" --eval "db.runCommand('ping')" >/dev/null 2>&1; then
+          if mongosh "mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" --eval "db.runCommand('ping')" >/dev/null 2>&1; then # secret-ignore
             echo "✅ MongoDB is ready after ${i} seconds"
             break
           fi
@@ -144,7 +144,7 @@ jobs:
       working-directory: ./backend
       run: |
         echo "NODE_ENV=production" > .env
-        echo "MONGODB_URI=mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" >> .env
+        echo "MONGODB_URI=mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" >> .env # secret-ignore
         echo "JWT_SECRET=test-jwt-secret-for-ci-only" >> .env
         echo "PORT=3001" >> .env
 
