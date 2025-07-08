@@ -36,6 +36,11 @@ check_file_for_secrets() {
         return 0
     fi
     
+    # Skip the pre-commit hook itself (contains regex patterns that look like secrets)
+    if [[ "$file" == *"pre-commit"* ]] || [[ "$file" == *".githooks"* ]]; then
+        return 0
+    fi
+    
     # Skip files that are too large (>1MB)
     if [ -f "$file" ] && [ $(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0) -gt 1048576 ]; then
         echo "⚠️  Skipping large file: $file"
