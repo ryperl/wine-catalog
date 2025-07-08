@@ -2,7 +2,7 @@ name: PR Validation
 
 on:
   pull_request:
-    branches: [ main, deve  security-scan:
+    branches: [ main, develop ]:
     name: Security Scanning
     runs-on: ubuntu-latest
     
