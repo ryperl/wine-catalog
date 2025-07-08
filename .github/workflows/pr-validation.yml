@@ -238,14 +238,16 @@ jobs:
       run: npm ci
 
     - name: Check for vulnerable dependencies
-      working-directory: ./backend
       run: |
+        cd backend
         npm audit --audit-level high
+        cd ..
         npx audit-ci --high
 
     - name: Check for outdated dependencies
-      working-directory: ./backend
-      run: npm outdated || true
+      run: |
+        cd backend
+        npm outdated || true
 
   pr-checks:
     name: PR Quality Checks
