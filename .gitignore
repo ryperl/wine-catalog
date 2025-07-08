@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+/frontend/dist
+/backend/dist
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Security files
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# MongoDB data
+data/
+
+# Coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Ignore node_modules in subdirectories
+**/node_modules/
+node_modules/

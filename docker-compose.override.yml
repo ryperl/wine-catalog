@@ -1,0 +1,47 @@
+# Docker Compose override for development
+# This file uses environment variables instead of hardcoded passwords
+# Copy .env.example to .env and set your passwords there
+
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: wine-catalog-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: wine_catalog
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - wine-catalog-network
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: wine-catalog-mongo-express
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://admin:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
+    networks:
+      - wine-catalog-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  wine-catalog-network:
+    driver: bridge
