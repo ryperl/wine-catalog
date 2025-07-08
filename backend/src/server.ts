@@ -11,6 +11,7 @@ import { errorHandler, notFound } from './middleware/error';
 // Load environment variables
 dotenv.config();
 
+// Create an Express server instance
 export const createServer = () => {
   const app = express();
 
