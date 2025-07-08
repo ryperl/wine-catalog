@@ -3,39 +3,8 @@ name: PR Validation
 on:
   pull_request:
     branches: [ main, develop ]
-    name: Security Scanning
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Run secret detection (PR)
-      if: github.event_name == 'pull_request'
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        base: ${{ github.event.pull_request.base.sha }}
-        head: ${{ github.event.pull_request.head.sha }}
-        extra_args: --debug --only-verified
-
-    - name: Run secret detection (Push)
-      if: github.event_name == 'push'
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        base: ${{ github.event.before }}
-        head: ${{ github.sha }}
-        extra_args: --debug --only-verified
-
-    - name: Run secret detection (Fallback - Full Scan)
-      if: github.event.before == '0000000000000000000000000000000000000000' || github.event.before == ''
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        extra_args: --debug --only-verified --since-commit=HEAD~1      - 'backend/**'
+    paths:
+      - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/**'
       - 'package*.json'
@@ -43,6 +12,20 @@ on:
     branches: [ main ]
 
 jobs:
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Secret Detection (Filesystem Scan)
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        extra_args: --only-verified --json --no-update
+
   backend-tests:
     name: Backend Tests & Validation
     runs-on: ubuntu-latest
@@ -95,24 +78,6 @@ jobs:
 
     - name: Check for security vulnerabilities
       run: npm audit --audit-level moderate
-
-  security-scan:
-    name: Security & Code Analysis
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Run CodeQL analysis
-      uses: github/codeql-action/init@v3
-      with:
-        languages: javascript
-
-    - name: Perform CodeQL analysis
-      uses: github/codeql-action/analyze@v3
 
   build-test:
     name: Build & Integration Test

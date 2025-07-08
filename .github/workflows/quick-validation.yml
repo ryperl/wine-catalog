@@ -1,8 +1,6 @@
 name: Quick Validation
-      with:
-        node-version: 18.20.8
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
+
+on:
   pull_request:
     branches: [ main ]
   push:
