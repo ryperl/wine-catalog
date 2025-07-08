@@ -22,7 +22,9 @@ describe('Auth Controller', () => {
 
   describe('POST /api/auth/register', () => {
     it('should register a new user successfully', async () => {
-      const userData = createMockUser();
+      const userData = createMockUser({
+        email: `test-register-${Date.now()}@example.com`
+      });
 
       const response = await request(app)
         .post('/api/auth/register')
@@ -47,7 +49,10 @@ describe('Auth Controller', () => {
     });
 
     it('should not register user with short password', async () => {
-      const userData = createMockUser({ password: '123' });
+      const userData = createMockUser({ 
+        email: `test-short-pwd-${Date.now()}@example.com`,
+        password: '123' 
+      });
 
       const response = await request(app)
         .post('/api/auth/register')
@@ -57,7 +62,9 @@ describe('Auth Controller', () => {
     });
 
     it('should not register user with existing email', async () => {
-      const userData = createMockUser();
+      const userData = createMockUser({
+        email: `test-duplicate-${Date.now()}@example.com`
+      });
       
       // Create user first
       await createTestUser(userData);
@@ -88,8 +95,11 @@ describe('Auth Controller', () => {
 
   describe('POST /api/auth/login', () => {
     it('should login user with valid credentials', async () => {
-      const userData = createMockUser();
-      await createTestUser(userData);
+      const userData = createMockUser({
+        email: `test-login-${Date.now()}@example.com`,
+        password: 'test-password-123'
+      });
+      const savedUser = await createTestUser(userData);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -117,7 +127,9 @@ describe('Auth Controller', () => {
     });
 
     it('should not login with invalid password', async () => {
-      const userData = createMockUser();
+      const userData = createMockUser({
+        email: `test-invalid-pwd-${Date.now()}@example.com`
+      });
       await createTestUser(userData);
 
       const response = await request(app)
@@ -141,7 +153,10 @@ describe('Auth Controller', () => {
 
   describe('GET /api/auth/me', () => {
     it('should return user profile when authenticated', async () => {
-      const userData = createMockUser();
+      const userData = createMockUser({
+        email: `test-profile-${Date.now()}@example.com`,
+        password: 'test-password-profile'
+      });
       const user = await createTestUser(userData);
 
       // Login to get token

@@ -1,7 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { validationResult } from 'express-validator';
 import { Wine } from '../models';
 import { IAuthRequest } from '../types';
+
+// Type for wine filter object  
+interface WineFilter {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any; // MongoDB filter objects require dynamic typing for operators
+}
 
 export const getWines = async (req: IAuthRequest, res: Response): Promise<void> => {
   try {
@@ -27,7 +33,7 @@ export const getWines = async (req: IAuthRequest, res: Response): Promise<void> 
     } = req.query;
 
     // Build filter query
-    const filter: any = { userId: req.user._id.toString() };
+    const filter: WineFilter = { userId: req.user._id.toString() };
 
     if (style) {
       filter.style = style;

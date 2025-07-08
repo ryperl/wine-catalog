@@ -8,8 +8,7 @@ export const generateToken = (payload: IJWTPayload): string => {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
 
-  // Use any to bypass TypeScript strict typing
-  return (jwt as any).sign(payload, secret, { expiresIn: '7d' });
+  return jwt.sign(payload, secret, { expiresIn: '7d' }) as string;
 };
 
 export const verifyToken = (token: string): IJWTPayload => {

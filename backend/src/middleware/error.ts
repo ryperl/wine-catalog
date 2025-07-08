@@ -27,7 +27,7 @@ export const errorHandler = (
   if (error.name === 'ValidationError') {
     statusCode = 400;
     message = Object.values(error.errors || {})
-      .map((val: any) => val.message)
+      .map((val: { message: string }) => val.message)
       .join(', ');
   }
 
