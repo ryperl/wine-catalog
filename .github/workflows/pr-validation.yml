@@ -128,20 +128,86 @@ jobs:
       working-directory: ./backend
       run: npm run build
 
+    - name: Wait for MongoDB
+      run: |
+        echo "Waiting for MongoDB to be ready..."
+        for i in {1..30}; do
+          if mongosh "mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" --eval "db.runCommand('ping')" >/dev/null 2>&1; then
+            echo "✅ MongoDB is ready after ${i} seconds"
+            break
+          fi
+          echo "Waiting for MongoDB... (${i}/30)"
+          sleep 1
+        done
+
+    - name: Create environment file
+      working-directory: ./backend
+      run: |
+        echo "NODE_ENV=production" > .env
+        echo "MONGODB_URI=mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin" >> .env
+        echo "JWT_SECRET=test-jwt-secret-for-ci-only" >> .env
+        echo "PORT=3001" >> .env
+
+    - name: Debug environment
+      working-directory: ./backend
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Available files:"
+        ls -la
+        echo "Dist directory:"
+        ls -la dist/ || echo "No dist directory found"
+        echo "Environment variables:"
+        env | grep -E "(NODE_ENV|PORT|MONGODB_URI)" || echo "No relevant env vars found"
+        echo "Package.json scripts:"
+        cat package.json | grep -A 10 '"scripts"'
+
     - name: Start backend server
       working-directory: ./backend
       run: |
-        npm start &
-        sleep 10
+        echo "Starting backend server..."
+        
+        # Check if dist/server.js exists
+        if [ ! -f "dist/server.js" ]; then
+          echo "❌ dist/server.js not found! Build may have failed."
+          echo "Contents of dist directory:"
+          ls -la dist/ || echo "No dist directory"
+          exit 1
+        fi
+        
+        echo "✅ Built server found, starting..."
+        
+        # Start server with explicit output
+        timeout 60s npm start &
+        SERVER_PID=$!
+        echo "Server PID: $SERVER_PID"
+        
+        # Wait for server to be ready (up to 30 seconds)
+        for i in {1..30}; do
+          if curl -s http://localhost:3001/api/health >/dev/null 2>&1; then
+            echo "✅ Server is ready after ${i} seconds"
+            exit 0
+          fi
+          
+          if ! kill -0 $SERVER_PID 2>/dev/null; then
+            echo "❌ Server process died"
+            exit 1
+          fi
+          
+          echo "Waiting for server... (${i}/30)"
+          sleep 2
+        done
+        
+        echo "❌ Server failed to start within 60 seconds"
+        exit 1
       env:
         NODE_ENV: production
-        MONGODB_URI: mongodb://testuser:testpass@localhost:27017/wine-catalog-test?authSource=admin # secret-ignore
-        JWT_SECRET: test-jwt-secret-for-ci-only # secret-ignore
         PORT: 3001
 
-    - name: Health check
+    - name: Verify server is running
       run: |
-        curl -f http://localhost:3001/api/health || exit 1
+        echo "Final health check..."
+        curl -f http://localhost:3001/api/health
+        echo "✅ Server is healthy and responding"
 
     - name: Run integration tests
       working-directory: ./backend
