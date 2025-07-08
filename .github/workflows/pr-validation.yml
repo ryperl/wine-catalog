@@ -18,7 +18,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [18.20.8]
         
     defaults:
       run:
@@ -112,10 +112,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Use Node.js 20.x
+    - name: Use Node.js 18.20.8
       uses: actions/setup-node@v4
       with:
-        node-version: 20.x
+        node-version: 18.20.8
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
@@ -157,10 +157,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Use Node.js 20.x
+    - name: Use Node.js 18.20.8
       uses: actions/setup-node@v4
       with:
-        node-version: 20.x
+        node-version: 18.20.8
 
     - name: Check for vulnerable dependencies
       working-directory: ./backend
