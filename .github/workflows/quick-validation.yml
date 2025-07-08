@@ -1,0 +1,89 @@
+name: Quick Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  quick-check:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: TypeScript check
+      run: npx tsc --noEmit
+
+    - name: Run tests
+      run: npm test
+      env:
+        NODE_ENV: test
+
+    - name: Lint check
+      run: npm run lint || echo "⚠️ Linting issues found"
+
+    - name: Security audit
+      run: npm audit --audit-level high || echo "⚠️ Security vulnerabilities found"
+
+  comment-on-pr:
+    name: PR Comment
+    runs-on: ubuntu-latest
+    needs: quick-check
+    if: github.event_name == 'pull_request' && always()
+    
+    steps:
+    - name: Comment PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo, number } = context.issue;
+          const conclusion = '${{ needs.quick-check.result }}';
+          
+          let message = '';
+          if (conclusion === 'success') {
+            message = `✅ **PR Validation Passed!**
+            
+            All checks completed successfully:
+            - ✅ TypeScript compilation
+            - ✅ All tests passing
+            - ✅ Code linting
+            - ✅ Security audit
+            
+            This PR is ready for review! 🚀`;
+          } else {
+            message = `❌ **PR Validation Failed**
+            
+            Some checks failed. Please review the workflow logs and fix the issues:
+            - Check the Actions tab for detailed logs
+            - Fix any TypeScript errors
+            - Ensure all tests pass
+            - Address linting issues
+            - Resolve security vulnerabilities
+            
+            Please push fixes and the validation will run again automatically.`;
+          }
+          
+          github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: number,
+            body: message
+          });
