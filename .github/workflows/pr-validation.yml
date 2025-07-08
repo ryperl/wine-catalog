@@ -33,9 +33,10 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install dependencies
+      working-directory: ./
       run: npm ci
 
     - name: Run TypeScript type checking
@@ -117,10 +118,10 @@ jobs:
       with:
         node-version: 18.20.8
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install backend dependencies
-      working-directory: ./backend
+      working-directory: ./
       run: npm ci
 
     - name: Build backend
@@ -161,6 +162,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 18.20.8
+
+    - name: Install dependencies
+      working-directory: ./
+      run: npm ci
 
     - name: Check for vulnerable dependencies
       working-directory: ./backend

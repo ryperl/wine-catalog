@@ -1,6 +1,8 @@
 name: Quick Validation
-
-on:
+      with:
+        node-version: 18.20.8
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
   pull_request:
     branches: [ main ]
   push:
@@ -24,9 +26,10 @@ jobs:
       with:
         node-version: 18.20.8
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install dependencies
+      working-directory: ./
       run: npm ci
 
     - name: TypeScript check
